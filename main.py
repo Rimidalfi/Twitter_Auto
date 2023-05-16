@@ -2,7 +2,6 @@ import os
 import csv
 import time
 import datetime
-# from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
@@ -25,7 +24,7 @@ PROXY_IP = os.getenv("PROXY_IP")
 seleniumwire_options = {
     'proxy': {
         'http': f'http://{PROXY_USERNAME}:{PROXY_PASSWORD}@{PROXY_IP}:{PROXY_PORT}',
-        'verify_ssl': False,
+        'https': f'https://{PROXY_USERNAME}:{PROXY_PASSWORD}@{PROXY_IP}:{PROXY_PORT}',
     },
 }
 counter = 0
@@ -74,7 +73,7 @@ def add_entry_to_csv(file_path, new_entry) -> None:
                 print("✨ follower added ✨")
 
 
-def collect_followers(collecting_time: int = 2, pixels_scroll: int = 500, start_hours: int = 00, start_min: int = 00, end_hours: int = 12, end_min: int = 00) -> None:
+def collect_followers(collecting_time: int = 3, pixels_scroll: int = 500, start_hours: int = 00, start_min: int = 00, end_hours: int = 12, end_min: int = 00) -> None:
     start_time = datetime.time(start_hours, start_min)
     end_time = datetime.time(end_hours, end_min)
     global counter
@@ -95,22 +94,21 @@ def collect_followers(collecting_time: int = 2, pixels_scroll: int = 500, start_
                         f"window.scrollBy(0, {pixels_scroll})")
                     counter = 0
                     time.sleep(3)
-            # refreshes the page to start again from the top of the followers list
+            # refreshes the page to start again from the top of the followers list after 1 hour
             driver.refresh()
-            time.sleep(3)
-        # waits 1 min to check if condiotion
+            time.sleep(56*60)
+        # waits 1 min to check if condition
         print("sleeping ... 😴")
         time.sleep(60)
 
 
-driver.get("https://twitter.com/")
 driver.maximize_window()
+driver.get("https://twitter.com/")
 button_press('//span[text()="Unwesentliche Cookies ablehnen"]')
 button_press('//span[text()="Anmelden"]')
 text_input('//input[@type="text"]', USERNAME)
 text_input('//input[@type="password"]', PASSWORD)
 time.sleep(3)
 driver.get(USERURL)
-# button_press('//span[text()="Profile"]')
 button_press('//span[starts-with(text(), "Follower")]')
 collect_followers()
