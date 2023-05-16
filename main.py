@@ -2,13 +2,14 @@ import os
 import csv
 import time
 import datetime
-from selenium import webdriver
+# from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from seleniumwire import webdriver
 from dotenv import load_dotenv
 
 
@@ -16,14 +17,22 @@ load_dotenv()
 USERNAME = os.getenv("USERNAME")
 PASSWORD = os.getenv("PASSWORD")
 USERURL = os.getenv("USERURL")
+PROXY_USERNAME = os.getenv("PROXY_USERNAME")
+PROXY_PASSWORD = os.getenv("PROXY_PASSWORD")
+PROXY_PORT = os.getenv("PROXY_PORT")
+PROXY_IP = os.getenv("PROXY_IP")
+
+seleniumwire_options = {
+    'proxy': {
+        'http': f'http://{PROXY_USERNAME}:{PROXY_PASSWORD}@{PROXY_IP}:{PROXY_PORT}',
+        'verify_ssl': False,
+    },
+}
 counter = 0
-follower_list = []
 options = Options()
 options.add_experimental_option("detach", True)
-start_time = datetime.time(0, 0)
-end_time = datetime.time(12, 00)
 driver = webdriver.Chrome(service=ChromeService(
-    ChromeDriverManager().install()), options=options)
+    ChromeDriverManager().install()), options=options, seleniumwire_options=seleniumwire_options)
 
 
 def button_press(xpath: str, waiting_time=15) -> None:
@@ -39,7 +48,7 @@ def text_input(xpath: str, text: str, waiting_time=5) -> None:
     input.send_keys(text + Keys.RETURN)
 
 
-def collect_follower(xpath: str, waiting_time=5):
+def adding_followers(xpath: str, waiting_time=5) -> None:
     links = WebDriverWait(driver, waiting_time).until(
         EC.visibility_of_any_elements_located(('xpath', xpath)))
 
@@ -48,7 +57,7 @@ def collect_follower(xpath: str, waiting_time=5):
         add_entry_to_csv("csv/new_followers.csv", follower)
 
 
-def add_entry_to_csv(file_path, new_entry):
+def add_entry_to_csv(file_path, new_entry) -> None:
     # check if new entry is already in csv
     with open(file_path, 'r', newline='') as csvfile:
         global counter
@@ -65,6 +74,35 @@ def add_entry_to_csv(file_path, new_entry):
                 print("✨ follower added ✨")
 
 
+def collect_followers(collecting_time: int = 2, pixels_scroll: int = 500, start_hours: int = 00, start_min: int = 00, end_hours: int = 12, end_min: int = 00) -> None:
+    start_time = datetime.time(start_hours, start_min)
+    end_time = datetime.time(end_hours, end_min)
+    global counter
+    while True:
+        current_time = datetime.datetime.now().time()
+        # during timeframe(start_time - end_time) run loop
+        if start_time <= current_time <= end_time:
+            # loop runs x min (collecting_time)
+            start = time.time()
+            duration = collecting_time*60
+            while (time.time()-start) < duration:
+                while counter <= 30:
+                    adding_followers(
+                        '//div[@aria-label="Timeline: Followers"]//span[starts-with(text(), "@")]')
+                    time.sleep(0.1)
+                else:
+                    driver.execute_script(
+                        f"window.scrollBy(0, {pixels_scroll})")
+                    counter = 0
+                    time.sleep(3)
+            # refreshes the page to start again from the top of the followers list
+            driver.refresh()
+            time.sleep(3)
+        # waits 1 min to check if condiotion
+        print("sleeping ... 😴")
+        time.sleep(60)
+
+
 driver.get("https://twitter.com/")
 driver.maximize_window()
 button_press('//span[text()="Unwesentliche Cookies ablehnen"]')
@@ -75,24 +113,4 @@ time.sleep(3)
 driver.get(USERURL)
 # button_press('//span[text()="Profile"]')
 button_press('//span[starts-with(text(), "Follower")]')
-
-while True:
-    current_time = datetime.datetime.now().time()
-    if start_time <= current_time <= end_time:
-        # loop runs x min
-        start = time.time()
-        duration = 5*60
-        while (time.time()-start) < duration:
-            while counter <= 30:
-                collect_follower(
-                    '//div[@aria-label="Timeline: Followers"]//span[starts-with(text(), "@")]')
-            else:
-                driver.execute_script("window.scrollBy(0, 500)")
-                counter = 0
-                time.sleep(3)
-        # refreshes the page to start again from the top of the followers list
-        driver.refresh()
-        time.sleep(3)
-    # waits 1 min to check if condiotion
-    print("sleeping ... 😴")
-    time.sleep(60)
+collect_followers()
