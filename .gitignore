@@ -1,3 +1,5 @@
 .env
 .vscode
 twitter_venv
+csv
+temp.py
