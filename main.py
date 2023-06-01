@@ -9,6 +9,7 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from seleniumwire import webdriver
+import mysql.connector
 from dotenv import load_dotenv
 
 
@@ -20,7 +21,16 @@ PROXY_USERNAME = os.getenv("PROXY_USERNAME")
 PROXY_PASSWORD = os.getenv("PROXY_PASSWORD")
 PROXY_PORT = os.getenv("PROXY_PORT")
 PROXY_IP = os.getenv("PROXY_IP")
+DB_HOST = os.getenv("DB_HOST")
+DB_PORT = os.getenv("DB_PORT")
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_DATABASE = os.getenv("DB_DATABASE")
 
+
+counter = 0
+options = Options()
+options.add_experimental_option("detach", True)
 seleniumwire_options = {
     'proxy': {
         'http': f'http://{PROXY_USERNAME}:{PROXY_PASSWORD}@{PROXY_IP}:{PROXY_PORT}',
@@ -28,9 +38,6 @@ seleniumwire_options = {
         'verify_ssl': False,
     },
 }
-counter = 0
-options = Options()
-options.add_experimental_option("detach", True)
 driver = webdriver.Chrome(service=ChromeService(
     ChromeDriverManager().install()), options=options, seleniumwire_options=seleniumwire_options)
 
@@ -48,55 +55,86 @@ def text_input(xpath: str, text: str, waiting_time=5) -> None:
     input.send_keys(text + Keys.RETURN)
 
 
-def adding_followers(xpath: str, waiting_time=5) -> None:
+def connect_to_db(db_host: str, db_port: str, db_user: str, db_password: str, db_database: str) -> mysql.connector.connection_cext.CMySQLConnection:
+    """open connection to database"""
+    conn = mysql.connector.connect(
+        host=db_host,
+        port=db_port,
+        user=db_user,
+        password=db_password,
+        database=db_database
+    )
+    return conn
+
+
+def close_connection_to_db(conn, cursor) -> None:
+    """closes connection to database"""
+    cursor.close()
+    conn.close()
+
+
+def adding_followers(conn, cursor, xpath: str, waiting_time=5) -> None:
     links = WebDriverWait(driver, waiting_time).until(
         EC.visibility_of_any_elements_located(('xpath', xpath)))
 
     for link in links:
         follower = link.text.replace("@", "")
-        add_entry_to_csv("csv/new_followers.csv", follower)
+        add_entry_to_db(conn, cursor, follower)
 
 
-def add_entry_to_csv(file_path, new_entry) -> None:
-    # check if new entry is already in csv
-    with open(file_path, 'r', newline='') as csvfile:
-        global counter
-        csv_r = csv.reader(csvfile)
-        """ if first 20 new_entries in DB : hold for 1h """
-        if any(new_entry in row for row in csv_r):
-            print(f"searching ... 🔍 {counter}")
-            counter += 1
-        else:
-            # if entry not in csv, add it
-            with open(file_path, 'a', newline='') as csvfile:
-                csv_w = csv.writer(csvfile)
-                csv_w.writerow([new_entry])
-                print("✨ follower added ✨")
+def add_entry_to_db(conn, cursor, new_entrry: str, table: str = "follower", columnname: str = "name") -> None:
+    """checks if given entry is already in database. If not makes new entry"""
+    global counter
+    sql_r = f"SELECT {columnname} FROM {table} WHERE {columnname} = %s"
+    sql_w = f"INSERT INTO {table} ({columnname}) VALUES(%s)"
+    # checks if entry is already in db
+
+    cursor.execute(sql_r, (new_entrry,))
+    # returns tuple if entry is found else returns None
+    result = cursor.fetchone()
+    if result is not None:
+        print(f"searching...🔍 {counter}")
+        counter += 1
+    else:
+        cursor.execute(sql_w, (new_entrry,))
+        print("✨ follower added ✨")
+        conn.commit()
 
 
 def collect_followers(collecting_time: int = 3, pixels_scroll: int = 500, start_hours: int = 00, start_min: int = 00, end_hours: int = 12, end_min: int = 00) -> None:
+    """collects followers in a given timeframe (infinite loop)"""
     start_time = datetime.time(start_hours, start_min)
     end_time = datetime.time(end_hours, end_min)
     global counter
     while True:
         current_time = datetime.datetime.now().time()
-        # during timeframe(start_time - end_time) run loop
+        # during timeframe(start_time - end_time) run loop. loop runs x min (collecting_time)
         if start_time <= current_time <= end_time:
-            # loop runs x min (collecting_time)
+            # open connection to database
+            conn = connect_to_db(DB_HOST, DB_PORT, DB_USER,
+                                 DB_PASSWORD, DB_DATABASE)
+            # creating cursor to interact with database
+            cursor = conn.cursor()
             start = time.time()
             duration = collecting_time*60
+            # during collecting time collect followers
             while (time.time()-start) < duration:
+                # collecting followers as long as counter is below 30
                 while counter <= 30:
-                    adding_followers(
-                        '//div[@aria-label="Timeline: Followers"]//span[starts-with(text(), "@")]')
+                    adding_followers(conn, cursor,
+                                     '//div[@aria-label="Timeline: Followers"]//span[starts-with(text(), "@")]')
                     time.sleep(0.1)
                 else:
+                    # scroll to load new followers
                     driver.execute_script(
                         f"window.scrollBy(0, {pixels_scroll})")
                     counter = 0
                     time.sleep(3)
             # refreshes the page to start again from the top of the followers list after 1 hour
             driver.refresh()
+            # cursor.close()
+            close_connection_to_db(conn, cursor)
+            print("sleeping for 56 min ... 😴")
             time.sleep(56*60)
         # waits 1 min to check if condition
         print("sleeping ... 😴")
@@ -105,7 +143,7 @@ def collect_followers(collecting_time: int = 3, pixels_scroll: int = 500, start_
 
 if __name__ == "__main__":
     driver.maximize_window()
-    driver.get("https://twitter.com/")
+    driver.get("https://twitter.com/")˚’
     button_press('//span[text()="Unwesentliche Cookies ablehnen"]')
     button_press('//span[text()="Anmelden"]')
     text_input('//input[@type="text"]', USERNAME)
