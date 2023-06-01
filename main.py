@@ -25,6 +25,7 @@ seleniumwire_options = {
     'proxy': {
         'http': f'http://{PROXY_USERNAME}:{PROXY_PASSWORD}@{PROXY_IP}:{PROXY_PORT}',
         'https': f'https://{PROXY_USERNAME}:{PROXY_PASSWORD}@{PROXY_IP}:{PROXY_PORT}',
+        'verify_ssl': False,
     },
 }
 counter = 0
@@ -102,13 +103,14 @@ def collect_followers(collecting_time: int = 3, pixels_scroll: int = 500, start_
         time.sleep(60)
 
 
-driver.maximize_window()
-driver.get("https://twitter.com/")
-button_press('//span[text()="Unwesentliche Cookies ablehnen"]')
-button_press('//span[text()="Anmelden"]')
-text_input('//input[@type="text"]', USERNAME)
-text_input('//input[@type="password"]', PASSWORD)
-time.sleep(3)
-driver.get(USERURL)
-button_press('//span[starts-with(text(), "Follower")]')
-collect_followers()
+if __name__ == "__main__":
+    driver.maximize_window()
+    driver.get("https://twitter.com/")
+    button_press('//span[text()="Unwesentliche Cookies ablehnen"]')
+    button_press('//span[text()="Anmelden"]')
+    text_input('//input[@type="text"]', USERNAME)
+    text_input('//input[@type="password"]', PASSWORD)
+    time.sleep(3)
+    driver.get(USERURL)
+    button_press('//span[starts-with(text(), "Follower")]')
+    collect_followers()
