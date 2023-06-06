@@ -22,6 +22,7 @@ pyasn1==0.5.0
 pycparser==2.21
 pyOpenSSL==23.1.1
 pyparsing==3.0.9
+pyperclip==1.8.2
 PySocks==1.7.1
 python-dotenv==1.0.0
 python-u2flib-server==5.0.1

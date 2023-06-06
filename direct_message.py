@@ -10,6 +10,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from seleniumwire import webdriver
 import mysql.connector
+import pyperclip
 from dotenv import load_dotenv
 
 
@@ -17,18 +18,20 @@ load_dotenv()
 USERNAME = os.getenv("USERNAME")
 PASSWORD = os.getenv("PASSWORD")
 USERURL = os.getenv("USERURL")
-PROXY_USERNAME = os.getenv("PROXY_USERNAME")
-PROXY_PASSWORD = os.getenv("PROXY_PASSWORD")
-PROXY_PORT = os.getenv("PROXY_PORT")
-PROXY_IP = os.getenv("PROXY_IP")
 DB_HOST = os.getenv("DB_HOST")
 DB_PORT = os.getenv("DB_PORT")
 DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 DB_DATABASE = os.getenv("DB_DATABASE")
+PROXY_USERNAME = os.getenv("PROXY_USERNAME")
+PROXY_PASSWORD = os.getenv("PROXY_PASSWORD")
+PROXY_PORT = os.getenv("PROXY_PORT")
+PROXY_IP = os.getenv("PROXY_IP")
 
 
-counter = 0
+msg_1 = "Hi!👋"
+
+
 options = Options()
 options.add_experimental_option("detach", True)
 seleniumwire_options = {
@@ -43,16 +46,29 @@ driver = webdriver.Chrome(service=ChromeService(
 
 
 def button_press(xpath: str, waiting_time=15) -> None:
-
+    """simple button press"""
     button = WebDriverWait(driver, waiting_time).until(
         EC.element_to_be_clickable(('xpath', xpath)))
     button.click()
 
 
-def text_input(xpath: str, text: str, waiting_time=5) -> None:
+def text_input(xpath: str, text: str, waiting_time=15) -> None:
+    """simple text input"""
     input = WebDriverWait(driver, waiting_time).until(
         EC.presence_of_element_located(('xpath', xpath)))
     input.send_keys(text + Keys.RETURN)
+
+
+def clipboard_input(xpath: str, text: str, waiting_time=15) -> None:
+    """input formated text with emojis"""
+    # copy the text to the clipboard
+    pyperclip.copy(text)
+    input = WebDriverWait(driver, waiting_time).until(
+        EC.presence_of_element_located(('xpath', xpath)))
+    # paste the text from the clipboard (with command for macOS)
+    input.send_keys(Keys.COMMAND + 'v')
+    input.send_keys(Keys.CONTROL + 'v')
+    input.send_keys(Keys.RETURN)
 
 
 def connect_to_db(db_host: str, db_port: str, db_user: str, db_password: str, db_database: str) -> mysql.connector.connection_cext.CMySQLConnection:
@@ -74,6 +90,7 @@ def close_connection_to_db(conn, cursor) -> None:
 
 
 def adding_followers(conn, cursor, xpath: str, waiting_time=5) -> None:
+    """adding followers from followers list"""
     links = WebDriverWait(driver, waiting_time).until(
         EC.visibility_of_any_elements_located(('xpath', xpath)))
 
@@ -141,6 +158,13 @@ def collect_followers(collecting_time: int = 3, pixels_scroll: int = 500, start_
         time.sleep(60)
 
 
+def message_follower(follower: str, msg: str) -> None:
+    """write a direct message to targeted account"""
+    driver.get(f"https://twitter.com/{follower}")
+    button_press("//div[@aria-label='Message']")
+    clipboard_input("//div[@role='textbox']", msg, waiting_time=15)
+
+
 if __name__ == "__main__":
     driver.maximize_window()
     driver.get("https://twitter.com/")
@@ -149,6 +173,5 @@ if __name__ == "__main__":
     text_input('//input[@type="text"]', USERNAME)
     text_input('//input[@type="password"]', PASSWORD)
     time.sleep(3)
-    driver.get(USERURL)
-    button_press('//span[starts-with(text(), "Follower")]')
-    collect_followers()
+    message_follower("Rimidalfi", msg_1)
+    time.sleep(5)
