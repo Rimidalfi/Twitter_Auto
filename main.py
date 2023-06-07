@@ -1,5 +1,5 @@
 import os
-import csv
+import json
 import time
 import datetime
 from selenium.webdriver.chrome.service import Service as ChromeService
@@ -9,6 +9,7 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from seleniumwire import webdriver
+import pyperclip
 import mysql.connector
 from dotenv import load_dotenv
 
@@ -53,6 +54,18 @@ def text_input(xpath: str, text: str, waiting_time=5) -> None:
     input = WebDriverWait(driver, waiting_time).until(
         EC.presence_of_element_located(('xpath', xpath)))
     input.send_keys(text + Keys.RETURN)
+
+
+def clipboard_input(xpath: str, text: str, waiting_time=15) -> None:
+    """input formated text with emojis"""
+    # copy the text to the clipboard
+    pyperclip.copy(text)
+    input = WebDriverWait(driver, waiting_time).until(
+        EC.presence_of_element_located(('xpath', xpath)))
+    # paste the text from the clipboard (with command for macOS)
+    input.send_keys(Keys.COMMAND + 'v')
+    input.send_keys(Keys.CONTROL + 'v')
+    input.send_keys(Keys.RETURN)
 
 
 def connect_to_db(db_host: str, db_port: str, db_user: str, db_password: str, db_database: str) -> mysql.connector.connection_cext.CMySQLConnection:
@@ -139,6 +152,27 @@ def collect_followers(collecting_time: int = 3, pixels_scroll: int = 500, start_
         # waits 1 min to check if condition
         print("sleeping ... 😴")
         time.sleep(60)
+
+
+def message_follower(follower: str, msg: str) -> None:
+    """write a direct message to targeted account"""
+    driver.get(f"https://twitter.com/{follower}")
+    button_press("//div[@aria-label='Message']")
+    clipboard_input("//div[@role='textbox']", msg, waiting_time=15)
+
+
+def get_meta(follower: str, xpath: str, waiting_time=15) -> None:
+    """extract metadata from user profile"""
+    driver.get(f"https://twitter.com/{follower}")
+    json_script = WebDriverWait(driver, waiting_time).until(
+        EC.presence_of_element_located(('xpath', xpath))).get_attribute("innerHTML")
+    # loading JSON from innerHTML
+    json_data = json.loads(json_script)
+    username = json_data['author']['givenName']
+    twitter_id = json_data['author']['identifier']
+    followers_count = json_data['author']['interactionStatistic'][0]['userInteractionCount']
+    followings_count = json_data['author']['interactionStatistic'][1]['userInteractionCount']
+    creation_date = json_data['dateCreated']
 
 
 if __name__ == "__main__":
