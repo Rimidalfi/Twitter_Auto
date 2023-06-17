@@ -28,7 +28,7 @@ DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 DB_DATABASE = os.getenv("DB_DATABASE")
 
-
+driver = ""
 counter = 0
 options = Options()
 options.add_experimental_option("detach", True)
@@ -39,8 +39,6 @@ seleniumwire_options = {
         'verify_ssl': False,
     },
 }
-driver = webdriver.Chrome(service=ChromeService(
-    ChromeDriverManager().install()), options=options, seleniumwire_options=seleniumwire_options)
 
 
 def button_press(xpath: str, waiting_time=15) -> None:
@@ -176,6 +174,8 @@ def get_meta(follower: str, xpath: str, waiting_time=15) -> None:
 
 
 if __name__ == "__main__":
+    driver = webdriver.Chrome(service=ChromeService(
+        ChromeDriverManager().install()), options=options, seleniumwire_options=seleniumwire_options)
     driver.maximize_window()
     driver.get("https://twitter.com/")
     button_press('//span[text()="Unwesentliche Cookies ablehnen"]')
